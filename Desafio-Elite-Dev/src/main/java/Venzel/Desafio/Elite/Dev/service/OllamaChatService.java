@@ -7,12 +7,17 @@ import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class OllamaChatService implements ChatModelService {
 
     @Autowired
     LeadService leadService;
     private final OllamaChatModel model;
+
+    @Autowired
+    CalendarService calendarService;
 
     public OllamaChatService(OllamaChatModel model) {
         this.model = model;
@@ -31,7 +36,9 @@ public class OllamaChatService implements ChatModelService {
             4. Faça questão de entender bem a necessidade dele e confirme se é isso mesmo, quando ele confirmar você já pode armazenar. 
             5. Sempre faça a análise para saber se você já tem todos os dados que foram citados no passo 1
             6. Responda de forma natural e profissional.
-            7. Ao final, quando todos os dados forem coletados, simule o agendamento da reunião.
+            7. Ao final, quando todos os dados forem coletados, pergunte para ele se ele quer agendar a reunião.
+            8. Se ele quiser agendar a reunião peça para ele responder com agendar.
+            9. Mostre os horários disponíveis caso ele queira agendar
             """;
 
     private String template = """
@@ -60,12 +67,17 @@ public class OllamaChatService implements ChatModelService {
 
         conversation.addMessage("IA: " + response);
 
-        String leadJson = extractJsonFromResponse(response); // método que você cria
+        String leadJson = extractJsonFromResponse(response);
         if (leadJson != null) {
             try {
                 ObjectMapper mapper = new ObjectMapper();
                 Lead updatedLead = mapper.readValue(leadJson, Lead.class);
-                conversation.setLead(updatedLead);
+
+                Lead currentLead = conversation.getLead();
+                if (updatedLead.getNome() != null) currentLead.setNome(updatedLead.getNome());
+                if (updatedLead.getEmail() != null) currentLead.setEmail(updatedLead.getEmail());
+                if (updatedLead.getEmpresa() != null) currentLead.setEmpresa(updatedLead.getEmpresa());
+                if (updatedLead.getNecessidade() != null) currentLead.setNecessidade(updatedLead.getNecessidade());
             } catch (Exception e) {
                 System.out.println("Erro ao atualizar Lead: " + e.getMessage());
             }
@@ -74,6 +86,19 @@ public class OllamaChatService implements ChatModelService {
         if (leadService.isLeadComplete(conversation.getLead())) {
             System.out.println("Lead completo! Dados coletados:");
             System.out.println(conversation.getLead());
+
+            if (!conversation.getLead().getObservers().isEmpty()) {
+                conversation.getLead().getObservers().forEach(leadObserver ->  leadObserver.onLeadComplete(conversation.getLead()));
+            }
+
+            if (userInput.toLowerCase().contains("agendar")) {
+                List<String> slots = conversation.getLead().getAvailableSlots();
+
+                if (slots == null) slots = List.of();
+
+                List<String> formattedSlots = calendarService.formatSlotsForUser(slots);
+                response += "Os horários de agendamento disponíveis são: \n" + formattedSlots;
+            }
         } else {
             System.out.println("Lead ainda incompleto. Continuar perguntando...");
         }
