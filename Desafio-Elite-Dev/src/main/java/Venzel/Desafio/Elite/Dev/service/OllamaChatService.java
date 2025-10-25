@@ -2,6 +2,7 @@ package Venzel.Desafio.Elite.Dev.service;
 
 import Venzel.Desafio.Elite.Dev.config.ConversationHistory;
 import Venzel.Desafio.Elite.Dev.model.Lead;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,13 +49,27 @@ public class OllamaChatService implements ChatModelService {
             
             Mensagem do usuário: %s
             
-            Responda de forma natural, conduza a conversa, e no final de cada resposta inclua o Lead atualizado em JSON no formato:
-            {
-              "nome": "...",
-              "email": "...",
-              "empresa": "...",
-              "necessidade": "..."
-            }
+            Responda de forma natural e humana, conduzindo a conversa conforme o contexto.
+            Analise a mensagem do usuário e identifique a intenção (intent), que pode ser uma das seguintes:
+            
+            - "provide_info": o usuário forneceu alguma informação do lead.
+            - "schedule_meeting": o usuário quer ver horários para agendar.
+            - "choose_slot": o usuário escolheu um horário específico.
+            
+            Instruções:
+            - Mantenha todos os valores existentes do Lead que não forem fornecidos nesta mensagem.
+            - Atualize apenas os campos que o usuário fornecer ou confirmar nesta interação.
+            - No final, sempre inclua UM BLOCO JSON atualizado do Lead com:
+              {
+                "intent": "...",
+                "chosenSlot": "...",
+                "lead": {
+                  "nome": "...",
+                  "email": "...",
+                  "empresa": "...",
+                  "necessidade": "..."
+                }
+              }
             </INST>
             """;
 
@@ -71,13 +86,40 @@ public class OllamaChatService implements ChatModelService {
         if (leadJson != null) {
             try {
                 ObjectMapper mapper = new ObjectMapper();
-                Lead updatedLead = mapper.readValue(leadJson, Lead.class);
+                JsonNode jsonNode = mapper.readTree(leadJson);
+
+                String intent = jsonNode.path("intent").asText();
+                String chosenSlot = jsonNode.path("chosenSlot").asText(null);
+
+                JsonNode leadNode = jsonNode.path("lead");
+                Lead updatedLead = mapper.treeToValue(leadNode, Lead.class);
 
                 Lead currentLead = conversation.getLead();
-                if (updatedLead.getNome() != null) currentLead.setNome(updatedLead.getNome());
-                if (updatedLead.getEmail() != null) currentLead.setEmail(updatedLead.getEmail());
-                if (updatedLead.getEmpresa() != null) currentLead.setEmpresa(updatedLead.getEmpresa());
-                if (updatedLead.getNecessidade() != null) currentLead.setNecessidade(updatedLead.getNecessidade());
+                currentLead.setNome(updatedLead.getNome() != null ? updatedLead.getNome() : currentLead.getNome());
+                currentLead.setEmail(updatedLead.getEmail() != null ? updatedLead.getEmail() : currentLead.getEmail());
+                currentLead.setEmpresa(updatedLead.getEmpresa() != null ? updatedLead.getEmpresa() : currentLead.getEmpresa());
+                currentLead.setNecessidade(updatedLead.getNecessidade() != null ? updatedLead.getNecessidade() : currentLead.getNecessidade());
+
+
+                if ("schedule_meeting".equals(intent) && chosenSlot == null) {
+                    List<String> slots = currentLead.getAvailableSlots();
+
+                    if (slots == null) slots = List.of();
+                    List<String> formattedSlots = calendarService.formatSlotsForUser(slots);
+                    response += "Os horários de agendamento são " + formattedSlots;
+                }
+
+                if ("choose_slot".equals(intent) && chosenSlot != null) {
+                    String bookingResult = calendarService.createBooking(
+                            "3726710",
+                            chosenSlot,
+                            currentLead.getNome(),
+                            currentLead.getEmail(),
+                            "America/Sao_Paulo"
+                    );
+                    response += "Reunião agendada" + bookingResult;
+                }
+
             } catch (Exception e) {
                 System.out.println("Erro ao atualizar Lead: " + e.getMessage());
             }

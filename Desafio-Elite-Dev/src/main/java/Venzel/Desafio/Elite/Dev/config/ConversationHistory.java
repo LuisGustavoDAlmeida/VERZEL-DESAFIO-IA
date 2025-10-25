@@ -2,10 +2,13 @@ package Venzel.Desafio.Elite.Dev.config;
 
 import Venzel.Desafio.Elite.Dev.model.Lead;
 import org.apache.catalina.User;
+import org.springframework.stereotype.Service;
+import org.springframework.web.context.annotation.SessionScope;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@SessionScope
 public class ConversationHistory {
     private Lead lead;
     private List<String> messages;

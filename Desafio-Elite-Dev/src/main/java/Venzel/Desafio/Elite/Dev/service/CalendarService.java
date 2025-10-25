@@ -108,4 +108,15 @@ public class CalendarService {
         }
         return formatted;
     }
+
+    public String extractChosenSlot(String userInput, List<String> availableSlots) {
+        if (availableSlots == null || availableSlots.isEmpty()) return null;
+
+        for (String slot : availableSlots) {
+            if (userInput.contains(slot.substring(11, 16))) {
+                return  slot;
+            }
+        }
+        return userInput;
+    }
 }
