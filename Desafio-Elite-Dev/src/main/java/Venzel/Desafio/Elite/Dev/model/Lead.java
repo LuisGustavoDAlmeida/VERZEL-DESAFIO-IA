@@ -6,12 +6,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Lead {
-    String ID;
-    String nome;
-    String email;
-    String empresa;
-    String necessidade;
-    String prazo;
+    private String ID;
+    private String nome;
+    private String email;
+    private String empresa;
+    private String necessidade;
+    private String prazo;
     private List<String> availableSlots;
 
     private final List<LeadObserver> observers = new ArrayList<>();

@@ -1,8 +1,9 @@
 package Venzel.Desafio.Elite.Dev.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import Venzel.Desafio.Elite.Dev.model.Booking;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -58,8 +59,44 @@ public class CalendarService {
         }
     }
 
+    public String createBooking(String eventTypeId, String start, String name, String email, String timeZone) {
+        try {
+            String url = "hhtps://api.cal.com/v2/bookings";
+
+            ObjectMapper objectMapper = new ObjectMapper();
+
+            ObjectNode request = objectMapper.createObjectNode();
+            request.put("eventTypeId", eventTypeId);
+            request.put("start", start);
+
+            ObjectNode attendee = objectMapper.createObjectNode();
+            attendee.put("name", name);
+            attendee.put("email", email);
+            attendee.put("timeZone", timeZone);
+
+            request.set("attendee", attendee);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + API_KEY);
+            headers.set("Content-Type", "application/json");
+            headers.set("cal-api-version", API_VERSION);
+
+            HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(request), headers);
+
+            Booking booking = new Booking(eventTypeId, start, name, email, timeZone);
+
+            String response = restTemplate.postForObject(url, entity, String.class);
+            System.out.println("Booking criado");
+
+            return response;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public List<String> formatSlotsForUser(List<String> rawSlots) {
         List<String> formatted = new ArrayList<>();
+
         for (String slot : rawSlots) {
             ZonedDateTime zonedDateTime = ZonedDateTime.parse(slot);
             String day = String.valueOf(zonedDateTime.getDayOfMonth());
