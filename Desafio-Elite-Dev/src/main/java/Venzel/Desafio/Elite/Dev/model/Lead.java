@@ -105,13 +105,9 @@ public class Lead {
 
     @Override
     public String toString() {
-        return "Lead{" +
-                "ID='" + ID + '\'' +
-                ", nome='" + nome + '\'' +
-                ", email='" + email + '\'' +
-                ", empresa='" + empresa + '\'' +
-                ", necessidade='" + necessidade + '\'' +
-                ", observers=" + observers +
-                '}';
+        return String.format(
+                "Lead[nome='%s', email='%s', empresa='%s', necessidade='%s', prazo='%s']",
+                nome, email, empresa, necessidade, prazo
+        );
     }
 }

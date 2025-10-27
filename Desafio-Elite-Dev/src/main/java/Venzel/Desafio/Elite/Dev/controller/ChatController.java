@@ -14,16 +14,8 @@ public class ChatController {
     @Autowired
     private ChatModelService chatService;
 
-
-    private final ConversationHistory conversationHistory;
-
-    public ChatController(CalendarService calendarService) {
-        this.conversationHistory = new ConversationHistory();
-
-        Lead lead = new Lead();
-        lead.getObservers().add(new LeadSchedulingObserver(calendarService, "3726710"));
-        conversationHistory.setLead(lead);
-    }
+    @Autowired
+    private ConversationHistory conversationHistory;
 
     @GetMapping("/chat")
     public String chat(@RequestParam(value = "message") String message) {

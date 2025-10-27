@@ -1,9 +1,11 @@
 package Venzel.Desafio.Elite.Dev.service;
 
 import Venzel.Desafio.Elite.Dev.model.Booking;
+import Venzel.Desafio.Elite.Dev.model.SlotOption;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -18,6 +20,7 @@ import java.util.Locale;
 
 @Service
 public class CalendarService {
+
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -59,9 +62,25 @@ public class CalendarService {
         }
     }
 
+    public List<String> getAvailableSlotsForNextWeek(String eventTypeId) {
+        if (eventTypeId == null) {
+            eventTypeId = "3726710";
+        }
+
+        ZonedDateTime now = ZonedDateTime.now();
+        ZonedDateTime oneWeekFromNow = now.plusDays(7);
+
+        String startIso = now.toInstant().toString();
+        String endIso = oneWeekFromNow.toInstant().toString();
+
+        System.out.println("Buscando slots de: " + startIso + " até " + endIso);
+
+        return getAvailableSlots(eventTypeId, startIso, endIso);
+    }
+
     public String createBooking(String eventTypeId, String start, String name, String email, String timeZone) {
         try {
-            String url = "hhtps://api.cal.com/v2/bookings";
+            String url = "https://api.cal.com/v2/bookings";
 
             ObjectMapper objectMapper = new ObjectMapper();
 
@@ -83,10 +102,9 @@ public class CalendarService {
 
             HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(request), headers);
 
-            Booking booking = new Booking(eventTypeId, start, name, email, timeZone);
 
             String response = restTemplate.postForObject(url, entity, String.class);
-            System.out.println("Booking criado");
+            System.out.println("Booking criado: " + response);
 
             return response;
         } catch (Exception e) {
@@ -100,7 +118,7 @@ public class CalendarService {
         for (String slot : rawSlots) {
             ZonedDateTime zonedDateTime = ZonedDateTime.parse(slot);
             String day = String.valueOf(zonedDateTime.getDayOfMonth());
-            String month = String.valueOf(zonedDateTime.getMonth().getDisplayName(TextStyle.FULL, new Locale("pt", "BR")));
+            String month = zonedDateTime.getMonth().getDisplayName(TextStyle.FULL, new Locale("pt", "BR"));
             String year = String.valueOf(zonedDateTime.getYear());
             String hour = String.format("%02d:%02d", zonedDateTime.getHour(), zonedDateTime.getMinute());
 
@@ -109,14 +127,31 @@ public class CalendarService {
         return formatted;
     }
 
-    public String extractChosenSlot(String userInput, List<String> availableSlots) {
-        if (availableSlots == null || availableSlots.isEmpty()) return null;
+    public String extractChosenSlot(String userInput, List<SlotOption> slotOptions) {
+        if (slotOptions == null || slotOptions.isEmpty()) return null;
 
-        for (String slot : availableSlots) {
-            if (userInput.contains(slot.substring(11, 16))) {
-                return  slot;
+        for (SlotOption slot : slotOptions) {
+            if (userInput.contains(slot.getDisplay())) {
+                return slot.getIso();
             }
         }
-        return userInput;
+        return null;
+    }
+
+
+    public List<SlotOption> buildSlotOptions(List<String> rawSlots) {
+        List<SlotOption> options = new ArrayList<>();
+        for (String slot : rawSlots) {
+            ZonedDateTime zonedDateTime = ZonedDateTime.parse(slot);
+            String display = String.format("%d de %s de %d às %02d:%02d",
+            zonedDateTime.getDayOfMonth(),
+            zonedDateTime.getMonth().getDisplayName(TextStyle.FULL, new Locale("pt", "BR")),
+            zonedDateTime.getYear(),
+            zonedDateTime.getHour(),
+            zonedDateTime.getMinute());
+
+            options.add(new SlotOption(slot, display));
+        }
+        return options;
     }
 }
